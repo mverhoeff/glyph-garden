@@ -13,6 +13,7 @@ import {
   rnd,
   smin,
   smooth,
+  spot,
   tri,
 } from '../../src/engine/shape';
 
@@ -125,6 +126,17 @@ describe('hash', () => {
   });
 });
 
+describe('spot', () => {
+  it('hashes the rounded local cell with the animal seed', () => {
+    expect(spot(2.4, -0.6, { seed: 0.1234 })).toBe(hash(2, -1, 1234));
+    expect(spot(1.2, 0.3, { seed: 0.5 }, 2)).toBe(hash(2, 1, 5000));
+  });
+
+  it('differs between individuals', () => {
+    expect(spot(3, 4, { seed: 0.1 })).not.toBe(spot(3, 4, { seed: 0.2 }));
+  });
+});
+
 describe('noise', () => {
   it('stays in [-1, 1] and is continuous', () => {
     let prev = noise(0);
@@ -167,7 +179,7 @@ describe('rnd', () => {
 });
 
 describe('S', () => {
-  it('groups all thirteen helpers', () => {
+  it('groups all fourteen helpers', () => {
     expect(Object.keys(S).sort()).toEqual(
       [
         'angDiff',
@@ -182,6 +194,7 @@ describe('S', () => {
         'rnd',
         'smin',
         'smooth',
+        'spot',
         'tri',
       ].sort(),
     );

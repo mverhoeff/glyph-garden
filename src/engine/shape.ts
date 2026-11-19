@@ -98,6 +98,11 @@ export function hash(a: number, b = 0, c = 0): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+// Stable random per local cell of one individual (spots, patterns). k sets how many cells per body unit.
+export function spot(x: number, y: number, a: { seed: number }, k = 1): number {
+  return hash(Math.round(x * k), Math.round(y * k), (a.seed * 1e4) | 0);
+}
+
 // Smooth 1D value noise in [-1, 1].
 export function noise(t: number): number {
   const i = Math.floor(t),
@@ -117,4 +122,19 @@ export function rnd(a: number, b: number): number {
 }
 
 // Grouped so ported animal code can keep calling S.circle(...) and friends unchanged.
-export const S = { clamp, mix, smooth, angDiff, circle, ellipse, capsule, tri, smin, hash, noise, pick, rnd };
+export const S = {
+  clamp,
+  mix,
+  smooth,
+  angDiff,
+  circle,
+  ellipse,
+  capsule,
+  tri,
+  smin,
+  hash,
+  spot,
+  noise,
+  pick,
+  rnd,
+};
