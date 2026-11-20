@@ -6,6 +6,7 @@ import { butterfly } from './butterfly';
 import { crab } from './crab';
 import { crane } from './crane';
 import { dragonfly } from './dragonfly';
+import { firefly } from './firefly';
 import { frog } from './frog';
 import { gecko } from './gecko';
 import { jellyfish } from './jellyfish';
@@ -27,6 +28,7 @@ const ANIMALS: readonly SpeciesDef[] = [
   gecko,
   swift,
   manta,
+  firefly,
 ];
 
 let registered = false;
