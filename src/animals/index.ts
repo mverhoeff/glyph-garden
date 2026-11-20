@@ -7,11 +7,23 @@ import { crab } from './crab';
 import { crane } from './crane';
 import { dragonfly } from './dragonfly';
 import { frog } from './frog';
+import { gecko } from './gecko';
 import { jellyfish } from './jellyfish';
 import { koi } from './koi';
 
 // Every animal, in picker order (number keys 1-9 and 0 follow it).
-const ANIMALS: readonly SpeciesDef[] = [butterfly, jellyfish, dragonfly, koi, frog, crane, crab, betta, bee];
+const ANIMALS: readonly SpeciesDef[] = [
+  butterfly,
+  jellyfish,
+  dragonfly,
+  koi,
+  frog,
+  crane,
+  crab,
+  betta,
+  bee,
+  gecko,
+];
 
 let registered = false;
 
