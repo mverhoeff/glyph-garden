@@ -1,7 +1,7 @@
 // How animals choose a heading. Species never set a.h; these helpers adjust a.want, holdMul and the flee state,
 // and the simulation step eases the heading toward them.
-import { angDiff, clamp, smooth } from './shape';
-import type { Animal, Mouse, Tweaks } from './types';
+import { angDiff, clamp, noise, smooth } from './shape';
+import type { Animal, Mouse, Tweaks, WorldApi } from './types';
 
 // The part of the world the cursor helpers read.
 export interface CursorView {
@@ -69,4 +69,75 @@ export function flee(a: Animal, ang: number, time = 0.9, panic = 0.8): void {
   a.fleeH = ang;
   a.fleeT = time;
   a.panic = Math.max(a.panic, panic);
+}
+
+// What updateAnimal needs from the world: everything species hooks get, plus the shared course.
+export interface StepWorld extends WorldApi {
+  course(): number;
+}
+
+// One animal's frame: species hooks set what it wants, then the engine eases the heading toward it, moves it and
+// wraps it round the edges. This is the only place the engine writes a.h.
+export function updateAnimal(w: StepWorld, a: Animal, dt: number): void {
+  const sp = a.sp,
+    T = w.T;
+  a.want = w.course() + a.off * T.spread * 1.4 + T.meander * 0.6 * Math.sin(w.t * a.mf + a.seed * 40);
+  a.speedMul = 1;
+  a.flapMul = 1;
+  a.holdMul = 1;
+  if (sp.update) sp.update(a, dt, w);
+  if (w.mouse.on && !a.bold) {
+    if (sp.hover) sp.hover(a, dt, w);
+    else if (!sp.eats) w.shy(a, dt);
+  } else a.dodge = 0;
+  // turning: ease toward the wanted heading, and ease the turn itself in and out, so nothing snaps round
+  const v = sp.speed * T.speed * (0.4 + 0.6 * a.u) * a.speedMul * (1 + 2.4 * a.panic);
+  let rate = T.hold * a.holdMul * (1 - Math.min(0.9, a.panic));
+  if (a.fleeT > 0) {
+    a.fleeT -= dt;
+    a.want = a.fleeH;
+    rate = Math.max(rate, sp.fleeTurn || 4);
+  }
+  rate = Math.min(
+    rate,
+    a.fleeT > 0 ? Math.max((sp.maxTurn || 3.2) * 1.6, sp.fleeTurn || 0) : sp.maxTurn || 3.2,
+  );
+  if (sp.turnRadius) rate = Math.min(rate, Math.abs(v) / (sp.turnRadius * a.sc)); // in flight: it can only turn as tightly as its speed allows
+  const gain = a.fleeT > 0 && sp.fleeTurn ? sp.fleeTurn / 2 : sp.turnGain || 3;
+  let target = clamp(angDiff(a.want, a.h) * gain, -rate, rate);
+  if (T.hold < 0.05) target += noise(w.t * 0.4 + a.seed * 97) * 0.8;
+  a.av += (target - a.av) * Math.min(1, dt * (sp.agility || 6));
+  if (sp.turnRadius) {
+    // also as it slows down again after a scare
+    const cap = Math.abs(v) / (sp.turnRadius * a.sc);
+    a.av = clamp(a.av, -cap, cap);
+  }
+  a.h += a.av * dt;
+  a.bank += (clamp(a.av * (sp.bankGain || 0.45), -1, 1) - a.bank) * Math.min(1, dt * 1.6); // roll follows the turn, slowly
+  a.panic *= Math.exp(-dt * 1.3);
+  a.x += (Math.cos(a.h) * v + a.ix) * dt;
+  a.y += (Math.sin(a.h) * v + a.iy) * dt;
+  const damp = Math.exp(-dt * 2.5);
+  a.ix *= damp;
+  a.iy *= damp;
+  a.phase += dt * sp.flap * T.beat * a.flapMul * (1 + a.panic);
+  // wrap around the edges
+  const m = (sp.chain ? sp.chain.n * sp.chain.spacing : sp.radius) * a.sc + 2;
+  let wx = 0,
+    wy = 0;
+  if (a.x < -m) wx = w.cols + 2 * m;
+  else if (a.x > w.cols + m) wx = -(w.cols + 2 * m);
+  if (a.y < -m) wy = w.rows + 2 * m;
+  else if (a.y > w.rows + m) wy = -(w.rows + 2 * m);
+  a.wrapped = !!(wx || wy);
+  if (a.wrapped) {
+    a.x += wx;
+    a.y += wy;
+    if (a.chain)
+      for (const p of a.chain) {
+        p.x += wx;
+        p.y += wy;
+      }
+  }
+  if (sp.trail) sp.trail(a, dt, w);
 }

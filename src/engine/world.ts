@@ -234,4 +234,102 @@ export class World implements WorldApi {
   lineGlyph(a: Animal, localAng = 0): string {
     return dirGlyph(a.h + a.face + localAng);
   }
+
+  // ---------- simulation ----------
+  // The order of the passes matters: it fixes the order of the species' random draws.
+  step(dt: number): void {
+    this.t += dt;
+    const T = this.T,
+      A = this.animals,
+      m = this.mouse;
+    m.idle += dt;
+    m.v *= Math.exp(-dt * 4);
+    m.on = m.inside && m.idle < 8 && T.cursor;
+    if (m.on) {
+      for (const a of A) a.md = Math.hypot(a.x - m.x, a.y - m.y);
+      [...A]
+        .sort((p, q) => p.md - q.md)
+        .forEach((a, i) => {
+          a.mrank = i;
+        });
+      if (m.v > 2) {
+        // the cursor leaves a faint patch of dots
+        const R = 3.4,
+          x0 = Math.floor(m.x - R),
+          y0 = Math.floor(m.y - R);
+        for (let cy = y0; cy <= y0 + 2 * R; cy++)
+          for (let cx = x0; cx <= x0 + 2 * R; cx++) {
+            const d = Math.hypot(cx + 0.5 - m.x, cy + 0.5 - m.y);
+            if (d > R || cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) continue;
+            const k = cy * this.cols + cx,
+              life = 1 - d / R,
+              old = this.halo.get(k);
+            if (!old || old.life < life) this.halo.set(k, { cx, cy, life });
+          }
+      }
+    } else
+      for (const a of A) {
+        a.md = 1e9;
+        a.mrank = 99;
+      }
+    for (const a of A) steering.updateAnimal(this, a, dt);
+    if (T.separation > 0 && this.sp) {
+      const base = (T.separation / 1000) * 1.9 * this.sp.radius;
+      for (let i = 0; i < A.length; i++)
+        for (let j = i + 1; j < A.length; j++) {
+          const a = A[i],
+            b = A[j];
+          if (!a || !b) continue;
+          const R = base * (a.sc + b.sc) * 0.5,
+            dx = b.x - a.x,
+            dy = b.y - a.y,
+            d2 = dx * dx + dy * dy;
+          if (d2 > R * R || d2 < 1e-6) continue;
+          const d = Math.sqrt(d2),
+            p = (1 - d / R) * dt * 5;
+          a.x -= (dx / d) * p;
+          a.y -= (dy / d) * p;
+          b.x += (dx / d) * p;
+          b.y += (dy / d) * p;
+        }
+    }
+    let grew = false;
+    for (const a of A)
+      if (a.gain < a.gainGoal) {
+        // growing: size, brightness and pace all follow the new depth
+        a.gain = Math.min(a.gainGoal, a.gain + dt * 0.008);
+        a.u = Math.pow(Math.min(1, a.r + a.gain), T.farBias);
+        a.sc = mix(T.farDepth, 1, a.u) * T.size * (a.sp.unit || 1);
+        grew = true;
+      }
+    if (grew) A.sort((a, b) => a.u - b.u);
+    for (const a of A) if (a.chain) this.follow(a);
+    for (const [k, tr] of this.trails) {
+      tr.life -= dt * tr.decay;
+      if (tr.life <= 0) this.trails.delete(k);
+    }
+    for (const [k, hl] of this.halo) {
+      hl.life -= dt * 1.1;
+      if (hl.life <= 0) this.halo.delete(k);
+    }
+    const damp = Math.exp(-dt * 2.2);
+    this.food = this.food.filter((f) => {
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.vx *= damp;
+      f.vy *= damp;
+      return !f.eaten && (f.age += dt) < 45;
+    });
+    this.ripples = this.ripples.filter((r) => {
+      r.r += dt * 11;
+      r.life -= dt * 1.1;
+      return r.life > 0;
+    });
+  }
+
+  // CALL SITE for chain bodies: the follow-the-leader pass comes with chain.ts. Until then no chain species is
+  // registered, so reaching this is a bug, not a silently frozen body.
+  private follow(a: Animal): void {
+    throw new Error(`chain bodies are not ported yet (${a.sp.id})`);
+  }
 }

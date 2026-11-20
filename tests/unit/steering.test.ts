@@ -160,3 +160,139 @@ describe('emit and lineGlyph', () => {
     expect(w.trails.size).toBe(0);
   });
 });
+
+// Quiet tweaks for watching the steering alone: no meander, spread, sway or separation.
+const still: Partial<Tweaks> = { direction: 0, sway: 0, spread: 0, meander: 0, separation: 0 };
+const DT = 1 / 60;
+
+describe('step: turning', () => {
+  it('turns an animal facing the wrong way back to the course, never faster than maxTurn', () => {
+    const { w, a } = one(species({ maxTurn: 1.5 }), { ...still, hold: 2 }, 72, 40, Math.PI - 0.1);
+    let fastest = 0;
+    for (let i = 0; i < 600; i++) {
+      const h = a.h;
+      w.step(DT);
+      fastest = Math.max(fastest, Math.abs(a.h - h) / DT);
+    }
+    expect(Math.abs(angDiff(a.h, w.course()))).toBeLessThan(0.01);
+    expect(fastest).toBeLessThanOrEqual(1.5 + 1e-9);
+  });
+
+  it('lets a fleeing animal turn faster than maxTurn', () => {
+    const fastestTurn = (fleeing: boolean): number => {
+      // Both start facing away from the course (0) and turn toward 0; only one of them is fleeing.
+      const { w, a } = one(
+        species({ maxTurn: 1.5, fleeTurn: 8 }),
+        { ...still, hold: 2 },
+        72,
+        40,
+        Math.PI - 0.1,
+      );
+      if (fleeing) w.flee(a, 0);
+      let fastest = 0;
+      for (let i = 0; i < 30; i++) {
+        const h = a.h;
+        w.step(DT);
+        fastest = Math.max(fastest, Math.abs(a.h - h) / DT);
+      }
+      return fastest;
+    };
+    expect(fastestTurn(false)).toBeLessThanOrEqual(1.5 + 1e-9);
+    expect(fastestTurn(true)).toBeGreaterThan(1.5 * 1.5);
+  });
+});
+
+describe('step: flight', () => {
+  // Distance travelled per radian turned, step by step, while turning hard toward the course or while fleeing.
+  function tightest(flee: boolean): { ratio: number; limit: number } {
+    const { w, a } = one(crane(), { ...still, hold: 3 }, 72, 40, Math.PI - 0.2);
+    if (flee) w.flee(a, -Math.PI / 2, 3, 1);
+    let ratio = Infinity;
+    for (let i = 0; i < 240; i++) {
+      const { x, y, h } = a;
+      w.step(DT);
+      const turned = Math.abs(a.h - h);
+      if (turned > 1e-9) ratio = Math.min(ratio, Math.hypot(a.x - x, a.y - y) / turned);
+    }
+    return { ratio, limit: 16 * a.sc };
+  }
+
+  it('never turns tighter than turnRadius x scale', () => {
+    const { ratio, limit } = tightest(false);
+    expect(ratio).toBeGreaterThanOrEqual(limit * 0.95);
+  });
+
+  it('never turns tighter than turnRadius x scale while fleeing', () => {
+    const { ratio, limit } = tightest(true);
+    expect(ratio).toBeGreaterThanOrEqual(limit * 0.95);
+  });
+});
+
+describe('step: skirting the cursor', () => {
+  const skirter = (): Species => ({ ...crane(), hover: (a, dt, w) => w.skirt(a, dt) });
+
+  function run(fwd: number, steps: number): Animal {
+    const { w, a } = one(skirter(), still);
+    Object.assign(w.mouse, { x: a.x + fwd, y: a.y, inside: true, idle: 0, v: 0 });
+    for (let i = 0; i < steps; i++) w.step(DT);
+    return a;
+  }
+
+  it('keeps its heading when the cursor is 0.5 cells ahead', () => {
+    expect(run(0.5, 1).h).toBe(0);
+  });
+
+  it('keeps its heading when the cursor is behind', () => {
+    expect(run(-20, 30).h).toBe(0);
+  });
+
+  it('turns away when the cursor is 55 cells straight ahead', () => {
+    const a = run(55, 30);
+    expect(Math.abs(a.h)).toBeGreaterThan(0.01);
+    expect(Math.sign(a.h)).toBe(a.dodge);
+  });
+});
+
+describe('step: wrapping and separation', () => {
+  it('brings an animal leaving the right edge back in on the left', () => {
+    const { w, a } = one(species(), still);
+    const m = 8 * a.sc + 2;
+    a.x = w.cols + m - 0.01;
+    w.step(DT);
+    expect(a.wrapped).toBe(true);
+    expect(a.x).toBeLessThan(0);
+    expect(a.x).toBeGreaterThan(-m);
+  });
+
+  it('pushes two overlapping animals apart', () => {
+    Math.random = mulberry32(3);
+    const w = new World();
+    w.setView(1440, 810, 10);
+    w.use(species({ count: 2 }), { ...BASE_TWEAKS, ...still, separation: 400, speed: 0 });
+    const [a, b] = w.animals;
+    if (!a || !b) throw new Error('expected two animals');
+    Object.assign(a, { x: 50, y: 40 });
+    Object.assign(b, { x: 51, y: 40 });
+    w.step(DT);
+    expect(b.x - a.x).toBeGreaterThan(1);
+    expect(a.y).toBe(40);
+  });
+});
+
+describe('step: growth', () => {
+  it('grows gradually and never past r + gain = 1', () => {
+    const { w, a } = one(species(), still);
+    a.r = 0.99;
+    w.sync();
+    const sc0 = a.sc;
+    w.grow(a, 0.02);
+    w.step(DT);
+    expect(a.gain).toBeGreaterThan(0);
+    expect(a.gain).toBeLessThan(0.01);
+    expect(a.sc).toBeGreaterThan(sc0);
+    for (let i = 0; i < 60 * 60; i++) w.step(DT);
+    expect(a.gain).toBeCloseTo(0.01, 12);
+    expect(a.r + a.gain).toBeLessThanOrEqual(1 + 1e-12);
+    expect(a.u).toBeCloseTo(1, 12);
+  });
+});
