@@ -1,6 +1,7 @@
 import { follow, layChain, straighten as straightenChain } from './chain';
 import { buildPalettes } from './color';
 import { dirGlyph } from './glyph';
+import * as interaction from './interaction';
 import { clamp, mix } from './shape';
 import * as steering from './steering';
 import type { Animal, Food, Mouse, Palettes, Prop, Species, SpeciesState, Tweaks, WorldApi } from './types';
@@ -53,9 +54,6 @@ export class World implements WorldApi {
   rows = 0;
   width = 0;
   height = 0;
-
-  // Not ported yet: the click scatter species call through WorldApi.
-  declare scatter: WorldApi['scatter'];
 
   // ---------- setup ----------
   // The prototype's resize() minus the canvas sizing, which belongs to the renderer.
@@ -223,6 +221,15 @@ export class World implements WorldApi {
 
   lineGlyph(a: Animal, localAng = 0): string {
     return dirGlyph(a.h + a.face + localAng);
+  }
+
+  // ---------- interaction (see interaction.ts) ----------
+  click(px: number, py: number): void {
+    interaction.click(this, px, py);
+  }
+
+  scatter(px: number, py: number, R = 42, kick = 1): void {
+    interaction.scatter(this, px, py, R, kick);
   }
 
   // ---------- simulation ----------
