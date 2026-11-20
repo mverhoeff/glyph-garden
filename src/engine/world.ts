@@ -1,3 +1,4 @@
+import { follow, layChain, straighten as straightenChain } from './chain';
 import { buildPalettes } from './color';
 import { dirGlyph } from './glyph';
 import { clamp, mix } from './shape';
@@ -53,8 +54,7 @@ export class World implements WorldApi {
   width = 0;
   height = 0;
 
-  // Not ported yet: chain straightening and the click scatter species call through WorldApi.
-  declare straighten: WorldApi['straighten'];
+  // Not ported yet: the click scatter species call through WorldApi.
   declare scatter: WorldApi['scatter'];
 
   // ---------- setup ----------
@@ -121,7 +121,7 @@ export class World implements WorldApi {
       // 0 = farthest, 1 = nearest (gain: what it has grown by eating)
       a.u = Math.pow(Math.min(1, a.r + a.gain), T.farBias);
       const sc = mix(T.farDepth, 1, a.u) * T.size * (sp.unit || 1);
-      if (a.chain && Math.abs(sc - a.sc) > 1e-6) this.layChain(a, sc);
+      if (a.chain && Math.abs(sc - a.sc) > 1e-6) layChain(a, sc);
       a.sc = sc;
     }
     this.animals.sort((a, b) => a.u - b.u); // far ones are drawn first
@@ -164,20 +164,6 @@ export class World implements WorldApi {
     return a;
   }
 
-  // Lays a chain out straight behind the head at scale sc.
-  private layChain(a: Animal, sc: number): void {
-    const chain = a.chain,
-      spec = a.sp.chain;
-    if (!chain || !spec) return;
-    const sp = spec.spacing * sc,
-      c = Math.cos(a.h),
-      s = Math.sin(a.h);
-    chain.forEach((p, i) => {
-      p.x = a.x - c * sp * i;
-      p.y = a.y - s * sp * i;
-    });
-  }
-
   // The shared travel direction, in canvas radians.
   course(): number {
     const T = this.T;
@@ -208,6 +194,10 @@ export class World implements WorldApi {
 
   flee(a: Animal, ang: number, time = 0.9, panic = 0.8): void {
     steering.flee(a, ang, time, panic);
+  }
+
+  straighten(a: Animal, rate: number, dt: number): void {
+    straightenChain(a, rate, dt);
   }
 
   // Drop a fading glyph at local coords of animal a. Rotates by the animal's own face, which crabs flip.
@@ -303,7 +293,7 @@ export class World implements WorldApi {
         grew = true;
       }
     if (grew) A.sort((a, b) => a.u - b.u);
-    for (const a of A) if (a.chain) this.follow(a);
+    for (const a of A) if (a.chain) follow(a);
     for (const [k, tr] of this.trails) {
       tr.life -= dt * tr.decay;
       if (tr.life <= 0) this.trails.delete(k);
@@ -325,11 +315,5 @@ export class World implements WorldApi {
       r.life -= dt * 1.1;
       return r.life > 0;
     });
-  }
-
-  // CALL SITE for chain bodies: the follow-the-leader pass comes with chain.ts. Until then no chain species is
-  // registered, so reaching this is a bug, not a silently frozen body.
-  private follow(a: Animal): void {
-    throw new Error(`chain bodies are not ported yet (${a.sp.id})`);
   }
 }
