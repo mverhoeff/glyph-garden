@@ -1,11 +1,82 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Glyph Garden</title>
+    <meta charset="utf-8" />
+    <title>New Tab</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
+    <canvas id="grid"></canvas>
+    <canvas id="fx"></canvas>
+
+    <nav id="species" class="pills" aria-label="Animals"></nav>
+
+    <button id="tweaksBtn" class="chip" type="button" aria-expanded="false">
+      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+        <path
+          d="M2 4.5h7M12.5 4.5H14M2 11.5h1.5M7 11.5h7"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          fill="none"
+        />
+        <circle cx="10.8" cy="4.5" r="1.7" stroke="currentColor" stroke-width="1.4" fill="none" />
+        <circle cx="5.2" cy="11.5" r="1.7" stroke="currentColor" stroke-width="1.4" fill="none" />
+      </svg>
+      Tweaks
+    </button>
+    <aside id="tweaks" class="panel" hidden></aside>
+    <div id="tip" class="tip" hidden></div>
+
+    <main class="center">
+      <div class="stack">
+        <div id="clock" class="clock"></div>
+        <div id="date" class="date"></div>
+        <h1 id="greet"></h1>
+        <form id="search" class="ask" autocomplete="off">
+          <div class="line">
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <textarea
+              id="q"
+              rows="1"
+              placeholder="Ask anything..."
+              aria-label="Search or enter a URL"
+            ></textarea>
+          </div>
+          <div class="line">
+            <button id="engine" class="mini" type="button" title="Click to change search engine">
+              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+                <path
+                  d="M8 3v10M3 8h10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                /></svg
+              ><span></span>
+            </button>
+            <button class="send" type="submit" aria-label="Search">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path
+                  d="M8 13V3.5M4 7.2 8 3.2l4 4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <div id="hint" class="hint"></div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
