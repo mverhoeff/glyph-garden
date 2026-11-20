@@ -1,9 +1,10 @@
 import { allSpecies, registerSpecies } from '../engine/registry';
 import type { Species, SpeciesDef } from '../engine/types';
 import { butterfly } from './butterfly';
+import { jellyfish } from './jellyfish';
 
 // Every animal, in picker order (number keys 1-9 and 0 follow it).
-const ANIMALS: readonly SpeciesDef[] = [butterfly];
+const ANIMALS: readonly SpeciesDef[] = [butterfly, jellyfish];
 
 let registered = false;
 
