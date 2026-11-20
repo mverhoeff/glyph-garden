@@ -10,6 +10,7 @@ import { frog } from './frog';
 import { gecko } from './gecko';
 import { jellyfish } from './jellyfish';
 import { koi } from './koi';
+import { swift } from './swift';
 
 // Every animal, in picker order (number keys 1-9 and 0 follow it).
 const ANIMALS: readonly SpeciesDef[] = [
@@ -23,6 +24,7 @@ const ANIMALS: readonly SpeciesDef[] = [
   betta,
   bee,
   gecko,
+  swift,
 ];
 
 let registered = false;
