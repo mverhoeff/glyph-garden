@@ -1,5 +1,7 @@
 import { buildPalettes } from './color';
+import { dirGlyph } from './glyph';
 import { clamp, mix } from './shape';
+import * as steering from './steering';
 import type { Animal, Food, Mouse, Palettes, Prop, Species, SpeciesState, Tweaks, WorldApi } from './types';
 
 const TAU = Math.PI * 2;
@@ -51,15 +53,8 @@ export class World implements WorldApi {
   width = 0;
   height = 0;
 
-  // Not ported yet: the steering, emitting and scatter helpers species call through WorldApi.
-  declare shy: WorldApi['shy'];
-  declare skirt: WorldApi['skirt'];
+  // Not ported yet: chain straightening and the click scatter species call through WorldApi.
   declare straighten: WorldApi['straighten'];
-  declare grow: WorldApi['grow'];
-  declare orbit: WorldApi['orbit'];
-  declare flee: WorldApi['flee'];
-  declare emit: WorldApi['emit'];
-  declare lineGlyph: WorldApi['lineGlyph'];
   declare scatter: WorldApi['scatter'];
 
   // ---------- setup ----------
@@ -192,5 +187,51 @@ export class World implements WorldApi {
 
   toMouse(a: Animal): number {
     return Math.atan2(this.mouse.y - a.y, this.mouse.x - a.x);
+  }
+
+  // ---------- helpers for species (see steering.ts) ----------
+  shy(a: Animal, dt: number, reach = 1, strength = 1): void {
+    steering.shy(this, a, dt, reach, strength);
+  }
+
+  skirt(a: Animal, dt: number, reach = 1, strength = 1): void {
+    steering.skirt(this, a, dt, reach, strength);
+  }
+
+  grow(a: Animal, amount: number): void {
+    steering.grow(a, amount);
+  }
+
+  orbit(a: Animal, R: number, dir = 1): number {
+    return steering.orbit(this.mouse, a, R, dir);
+  }
+
+  flee(a: Animal, ang: number, time = 0.9, panic = 0.8): void {
+    steering.flee(a, ang, time, panic);
+  }
+
+  // Drop a fading glyph at local coords of animal a. Rotates by the animal's own face, which crabs flip.
+  emit(a: Animal, lx: number, ly: number, ch: string, tone = 0.5, life = 1, decay = 1.5, hue = 'main'): void {
+    const rot = a.h + a.face,
+      c = Math.cos(rot),
+      s = Math.sin(rot);
+    const cx = Math.floor(a.x + (lx * c - ly * s) * a.sc),
+      cy = Math.floor(a.y + (lx * s + ly * c) * a.sc);
+    if (cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) return;
+    const pal = this.pal[hue] || this.pal.main;
+    const shade = pal?.[Math.round(clamp(tone, 0, 1) * (pal.length - 1))];
+    if (!shade) return; // a species without a main palette has nothing to emit with
+    this.trails.set(cy * this.cols + cx, {
+      cx,
+      cy,
+      ch,
+      color: shade.css,
+      life: life * (0.4 + 0.6 * a.u),
+      decay,
+    });
+  }
+
+  lineGlyph(a: Animal, localAng = 0): string {
+    return dirGlyph(a.h + a.face + localAng);
   }
 }
